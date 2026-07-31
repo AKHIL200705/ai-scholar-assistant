@@ -1,12 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { motion } from "motion/react";
-import { Camera, Images, ScanText, UploadCloud } from "lucide-react";
+import { Bookmark, Camera, Copy, Images, ScanText, UploadCloud } from "lucide-react";
 import { useRef, useState, type ChangeEvent } from "react";
 import { toast } from "sonner";
 import { PageShell } from "@/components/PageShell";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ocrText } from "@/data/mock";
+import { extractTextFromImage } from "@/lib/ai-service";
+import { saveAnswerToSupabase } from "@/lib/supabase-service";
 
 export const Route = createFileRoute("/app/image")({
   head: () => ({
@@ -24,21 +25,28 @@ function ImagePage() {
   const [state, setState] = useState<"idle" | "processing" | "done">("idle");
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [imageName, setImageName] = useState<string>("physics-question.jpg");
+  const [ocrData, setOcrData] = useState<{ extractedText: string; solution: string } | null>(null);
 
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
-  function runWithFile(file?: File) {
+  async function runWithFile(file?: File) {
+    const name = file ? file.name : "question-scan.jpg";
     if (file) {
       setImageSrc(URL.createObjectURL(file));
       setImageName(file.name);
       toast.success(`Loaded image: ${file.name}`);
     }
     setState("processing");
-    setTimeout(() => {
+    try {
+      const data = await extractTextFromImage(name);
+      setOcrData(data);
       setState("done");
-      toast.success("Text extracted with AI OCR!");
-    }, 1800);
+      toast.success("Text extracted & solution calculated with AI OCR!");
+    } catch {
+      toast.error("Failed to extract text from image.");
+      setState("idle");
+    }
   }
 
   function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
@@ -46,6 +54,12 @@ function ImagePage() {
     if (file) {
       runWithFile(file);
     }
+  }
+
+  async function handleBookmark() {
+    if (!ocrData) return;
+    await saveAnswerToSupabase("Scanned Question from Image", ocrData.solution, "Physics");
+    toast.success("Saved solution to your Supabase revision library!");
   }
 
   return (
@@ -96,66 +110,79 @@ function ImagePage() {
         </div>
       </div>
 
-      {state !== "idle" ? (
+      {state !== "idle" && (
         <div className="grid gap-4 lg:grid-cols-2">
-          <div className="glass rounded-2xl p-5">
-            <p className="mb-3 text-sm font-medium text-muted-foreground">Preview</p>
-            <div className="relative aspect-4/3 overflow-hidden rounded-xl bg-muted">
+          <div className="glass overflow-hidden rounded-3xl p-4">
+            <div className="flex items-center gap-2 pb-3 text-xs font-semibold text-muted-foreground">
+              <ScanText className="h-4 w-4 text-primary" /> Image Preview ({imageName})
+            </div>
+            <div className="relative aspect-video overflow-hidden rounded-2xl bg-black/40 flex items-center justify-center">
               {imageSrc ? (
-                <img src={imageSrc} alt="Preview" className="h-full w-full object-cover" />
+                <img src={imageSrc} alt="Preview" className="h-full w-full object-contain" />
               ) : (
-                <>
-                  <div className="absolute inset-0 gradient-brand opacity-20" />
-                  <div className="absolute inset-0 grid place-items-center text-sm text-muted-foreground">
-                    {imageName}
-                  </div>
-                </>
+                <div className="text-center p-6">
+                  <Camera className="mx-auto h-12 w-12 text-primary/40" />
+                  <p className="mt-2 text-xs text-muted-foreground">Simulated OCR scanning mode</p>
+                </div>
               )}
-              {state === "processing" ? (
-                <motion.div
-                  initial={{ top: "0%" }}
-                  animate={{ top: ["0%", "100%", "0%"] }}
-                  transition={{ duration: 1.8, repeat: Infinity }}
-                  className="absolute left-0 h-1 w-full bg-accent shadow-[0_0_20px_var(--accent)]"
-                />
-              ) : null}
+              {state === "processing" && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm">
+                  <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                  <p className="mt-3 text-xs font-medium text-white">AI OCR scanning & parsing math formulas...</p>
+                </div>
+              )}
             </div>
           </div>
 
-          <div className="glass rounded-2xl p-5">
+          <div className="glass space-y-4 rounded-3xl p-5">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <ScanText className="h-5 w-5 text-accent" />
-                <p className="font-display font-semibold">Extracted text</p>
-              </div>
+              <h3 className="font-display font-semibold">Extracted Text & AI Solution</h3>
               {state === "done" && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 text-xs border-glass-border"
-                  onClick={() => {
-                    navigator.clipboard.writeText(ocrText);
-                    toast.success("OCR text copied to clipboard!");
-                  }}
-                >
-                  Copy text
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      if (ocrData) {
+                        navigator.clipboard.writeText(ocrData.extractedText + "\n\n" + ocrData.solution);
+                        toast.success("Copied OCR text & solution to clipboard!");
+                      }
+                    }}
+                    className="h-8 rounded-lg border-glass-border bg-glass text-xs"
+                  >
+                    <Copy className="mr-1 h-3 w-3" /> Copy
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleBookmark}
+                    className="h-8 rounded-lg border-glass-border bg-glass text-xs"
+                  >
+                    <Bookmark className="mr-1 h-3 w-3 text-primary" /> Save
+                  </Button>
+                </div>
               )}
             </div>
+
             {state === "processing" ? (
-              <div className="mt-4 space-y-2">
-                {[0, 1, 2, 3, 4].map((i) => (
-                  <Skeleton key={i} className="h-4 w-full rounded-md" />
-                ))}
+              <div className="space-y-3">
+                <Skeleton className="h-16 w-full rounded-xl" />
+                <Skeleton className="h-28 w-full rounded-xl" />
               </div>
-            ) : (
-              <pre className="mt-4 whitespace-pre-wrap rounded-xl bg-muted/50 p-4 text-sm leading-relaxed">
-                {ocrText}
-              </pre>
-            )}
+            ) : ocrData ? (
+              <div className="space-y-4">
+                <div className="rounded-xl border border-glass-border bg-muted/40 p-3 text-xs font-mono">
+                  <p className="font-semibold text-primary mb-1">OCR Scanned Question:</p>
+                  {ocrData.extractedText}
+                </div>
+                <div className="whitespace-pre-line rounded-xl border border-glass-border bg-glass p-4 text-xs leading-relaxed">
+                  {ocrData.solution}
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
-      ) : null}
+      )}
     </PageShell>
   );
 }

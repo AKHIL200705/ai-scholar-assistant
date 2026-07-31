@@ -2,52 +2,82 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { motion } from "motion/react";
 import {
   Bookmark,
+  Camera,
   Copy,
   Download,
   FileText,
-  Image as ImageIcon,
   Mic,
   Send,
   Share2,
+  Sparkles,
   ThumbsDown,
   ThumbsUp,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
-import { BrainMark } from "@/components/BrainMark";
 import { PageShell } from "@/components/PageShell";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { initialMessages, mockAnswer, suggestedQuestions, user, type ChatMessage } from "@/data/mock";
+import { user } from "@/data/mock";
+import { solveAcademicDoubt } from "@/lib/ai-service";
+import { saveAnswerToSupabase } from "@/lib/supabase-service";
 
 export const Route = createFileRoute("/app/chat")({
   head: () => ({
     meta: [
       { title: "Ask AI — AI Doubt Resolution Assistant" },
-      { name: "description", content: "Chat with an AI tutor to resolve academic doubts step by step." },
-      { property: "og:title", content: "Ask AI — AI Doubt Resolution Assistant" },
-      { property: "og:description", content: "A ChatGPT-style tutor for every academic subject." },
+      { name: "description", content: "Chat with your AI academic tutor for step-by-step doubt resolution." },
     ],
   }),
   component: ChatPage,
 });
 
-function TypingIndicator() {
-  return (
-    <div className="glass inline-flex items-center gap-2 rounded-2xl px-4 py-3">
-      <BrainMark size={20} />
-      <span className="text-sm text-muted-foreground">Thinking</span>
-      {[0, 1, 2].map((i) => (
-        <span
-          key={i}
-          className="h-1.5 w-1.5 rounded-full bg-primary"
-          style={{ animation: `pulse-glow 1s ease-in-out ${i * 0.18}s infinite` }}
-        />
-      ))}
-    </div>
-  );
+interface ChatMessage {
+  id: string;
+  role: "user" | "ai";
+  text: string;
+  time: string;
+  subject?: string;
+  userQuestion?: string;
 }
+
+const initialMessages: ChatMessage[] = [
+  {
+    id: "m1",
+    role: "user",
+    text: "Can you explain Bayes' theorem with an easy real-world example?",
+    time: "10:14 AM",
+  },
+  {
+    id: "m2",
+    role: "ai",
+    subject: "Mathematics & Statistics",
+    text: `### **Bayes' Theorem Explanation**
+
+Bayes' theorem calculates the conditional probability of an event $A$, given that event $B$ has already occurred:
+
+\\[ P(A|B) = \\frac{P(B|A) \\cdot P(A)}{P(B)} \\]
+
+#### **Key Components:**
+1. **$P(A|B)$ (Posterior Probability)**: Probability of hypothesis $A$ after observing evidence $B$.
+2. **$P(B|A)$ (Likelihood)**: Probability of observing evidence $B$ if hypothesis $A$ is true.
+3. **$P(A)$ (Prior Probability)**: Initial probability of hypothesis $A$ before seeing evidence.
+4. **$P(B)$ (Marginal Likelihood)**: Total probability of observing evidence $B$ across all hypotheses.
+
+---
+
+#### **Real-World Example (Medical Test):**
+- Suppose 1% of a population has a disease ($P(D) = 0.01$).
+- A medical test is 95% accurate ($P(T+|D) = 0.95$).
+- False positive rate is 5% ($P(T+|\\neg D) = 0.05$).
+
+Plugging into Bayes' formula:
+\\[ P(D|T+) = \\frac{0.95 \\times 0.01}{(0.95 \\times 0.01) + (0.05 \\times 0.99)} \\approx 16.1\\% \\]
+
+*Even with a 95% accurate test, a positive result only means a 16.1% chance of having the disease due to low prior probability!*`,
+    time: "10:15 AM",
+  },
+];
 
 function now() {
   return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -80,16 +110,37 @@ function ChatPage() {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, thinking]);
 
-  function send(text: string) {
+  async function send(text: string) {
     const q = text.trim();
     if (!q) return;
     setMessages((m) => [...m, { id: crypto.randomUUID(), role: "user", text: q, time: now() }]);
     setInput("");
     setThinking(true);
-    setTimeout(() => {
-      setMessages((m) => [...m, { id: crypto.randomUUID(), role: "ai", text: mockAnswer(q), time: now() }]);
+
+    try {
+      const res = await solveAcademicDoubt(q);
+      setMessages((m) => [
+        ...m,
+        {
+          id: crypto.randomUUID(),
+          role: "ai",
+          text: res.answer,
+          subject: res.subject,
+          userQuestion: q,
+          time: now(),
+        },
+      ]);
+    } catch {
+      toast.error("Failed to generate AI response. Please try again.");
+    } finally {
       setThinking(false);
-    }, 1400);
+    }
+  }
+
+  async function handleBookmark(msg: ChatMessage) {
+    const q = msg.userQuestion || "Academic Doubt Solution";
+    await saveAnswerToSupabase(q, msg.text, msg.subject || "General");
+    toast.success("Saved answer to your Supabase revision library!");
   }
 
   return (
@@ -126,7 +177,7 @@ function ChatPage() {
                 </div>
                 <div className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
                   <span className={m.role === "user" ? "ml-auto" : ""}>{m.time}</span>
-                  {m.role === "ai" ? (
+                  {m.role === "ai" && (
                     <div className="flex items-center gap-0.5">
                       <Button
                         size="icon"
@@ -197,86 +248,88 @@ function ChatPage() {
                         variant="ghost"
                         aria-label="Bookmark"
                         className="h-7 w-7"
-                        onClick={() => toast.success("Saved answer to your revision library")}
+                        onClick={() => handleBookmark(m)}
                       >
-                        <Bookmark className="h-3.5 w-3.5" />
+                        <Bookmark className="h-3.5 w-3.5 text-primary" />
                       </Button>
                     </div>
-                  ) : null}
+                  )}
                 </div>
               </div>
             </motion.div>
           ))}
-          {thinking ? <TypingIndicator /> : null}
+
+          {thinking && (
+            <div className="flex gap-3">
+              <Avatar className="h-9 w-9 shrink-0">
+                <AvatarFallback className="gradient-brand text-[10px] font-bold text-primary-foreground">
+                  AI
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex items-center gap-1.5 rounded-2xl border border-glass-border bg-muted/50 px-4 py-3 text-xs text-muted-foreground">
+                <Sparkles className="h-4 w-4 animate-spin text-primary" />
+                AI is reasoning and calculating step-by-step...
+              </div>
+            </div>
+          )}
           <div ref={endRef} />
         </div>
 
-        <div className="mt-4 rounded-2xl border border-glass-border bg-glass p-3">
-          <Textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                send(input);
-              }
-            }}
-            placeholder={recording ? "Listening to your doubt..." : "Type your doubt… e.g. Explain Bayes theorem with an example"}
-            className={`min-h-20 resize-none border-0 bg-transparent focus-visible:ring-0 ${recording ? "text-primary animate-pulse" : ""}`}
-          />
-          <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-1">
-              <Button
-                size="icon"
-                variant={recording ? "default" : "ghost"}
-                aria-label="Voice input"
-                className={recording ? "bg-destructive text-destructive-foreground animate-bounce" : ""}
-                onClick={toggleVoiceInput}
-              >
-                <Mic className="h-4 w-4" />
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                aria-label="Upload image"
-                onClick={() => navigate({ to: "/app/image" })}
-              >
-                <ImageIcon className="h-4 w-4" />
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                aria-label="Upload PDF"
-                onClick={() => navigate({ to: "/app/pdf" })}
-              >
-                <FileText className="h-4 w-4" />
-              </Button>
-            </div>
+        <form
+          className="mt-4 flex items-center gap-2 border-t border-border/50 pt-3"
+          onSubmit={(e: FormEvent) => {
+            e.preventDefault();
+            send(input);
+          }}
+        >
+          <div className="flex items-center gap-1">
             <Button
-              onClick={() => send(input)}
-              disabled={thinking || !input.trim()}
-              className="gradient-brand border-0 text-primary-foreground glow-ring hover-lift"
+              type="button"
+              size="icon"
+              variant="ghost"
+              aria-label="Upload PDF"
+              onClick={() => navigate({ to: "/app/pdf" })}
+              className="h-9 w-9 rounded-xl hover:bg-accent"
             >
-              Send <Send className="ml-1 h-4 w-4" />
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </Button>
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              aria-label="Scan Image"
+              onClick={() => navigate({ to: "/app/image" })}
+              className="h-9 w-9 rounded-xl hover:bg-accent"
+            >
+              <Camera className="h-4 w-4 text-muted-foreground" />
             </Button>
           </div>
-        </div>
-      </div>
 
-      <div>
-        <h2 className="mb-3 font-display text-lg font-semibold">Suggested questions</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {suggestedQuestions.map((s) => (
-            <button
-              key={s.title}
-              onClick={() => send(s.title)}
-              className="glass hover-lift rounded-2xl p-4 text-left"
-            >
-              <p className="text-xs font-medium uppercase tracking-wide text-primary">{s.subject}</p>
-              <p className="mt-1 font-medium">{s.title}</p>
-            </button>
-          ))}
-        </div>
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Type your academic question..."
+            className="flex-1 rounded-xl border border-glass-border bg-glass px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+          />
+
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            aria-label="Voice input"
+            onClick={toggleVoiceInput}
+            className={`h-10 w-10 rounded-xl transition-all ${
+              recording ? "bg-red-500/20 text-red-500 animate-pulse" : "hover:bg-accent"
+            }`}
+          >
+            <Mic className="h-4 w-4" />
+          </Button>
+
+          <Button type="submit" disabled={!input.trim() || thinking} className="h-10 rounded-xl px-4 hover-lift">
+            <Send className="h-4 w-4" />
+          </Button>
+        </form>
       </div>
     </PageShell>
   );

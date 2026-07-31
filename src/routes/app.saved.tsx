@@ -1,13 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { motion } from "motion/react";
 import { Bookmark, Download, Search, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PageShell } from "@/components/PageShell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { savedAnswers } from "@/data/mock";
+import { savedAnswers as mockSaved } from "@/data/mock";
+import {
+  deleteSavedAnswerFromSupabase,
+  fetchSavedAnswersFromSupabase,
+  type SavedAnswer,
+} from "@/lib/supabase-service";
 
 export const Route = createFileRoute("/app/saved")({
   head: () => ({
@@ -23,15 +28,30 @@ export const Route = createFileRoute("/app/saved")({
 
 function SavedPage() {
   const [query, setQuery] = useState("");
-  const [items, setItems] = useState(savedAnswers);
+  const [items, setItems] = useState<SavedAnswer[]>(mockSaved);
   const [subject, setSubject] = useState("All");
-  const subjects = ["All", ...Array.from(new Set(savedAnswers.map((a) => a.subject)))];
+
+  useEffect(() => {
+    fetchSavedAnswersFromSupabase().then((data) => {
+      if (data && data.length > 0) {
+        setItems(data);
+      }
+    });
+  }, []);
+
+  const subjects = ["All", ...Array.from(new Set(items.map((a) => a.subject)))];
 
   const filtered = items.filter(
     (a) =>
       (subject === "All" || a.subject === subject) &&
       a.question.toLowerCase().includes(query.toLowerCase()),
   );
+
+  async function handleDelete(id: string) {
+    await deleteSavedAnswerFromSupabase(id);
+    setItems((prev) => prev.filter((x) => x.id !== id));
+    toast.success("Removed answer from saved list.");
+  }
 
   return (
     <PageShell
@@ -97,7 +117,7 @@ function SavedPage() {
                 variant="ghost"
                 aria-label="Delete"
                 className="h-8 w-8 text-destructive"
-                onClick={() => setItems((prev) => prev.filter((x) => x.id !== a.id))}
+                onClick={() => handleDelete(a.id)}
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -105,9 +125,6 @@ function SavedPage() {
           </motion.article>
         ))}
       </div>
-      {filtered.length === 0 ? (
-        <p className="py-12 text-center text-sm text-muted-foreground">No saved answers match your search.</p>
-      ) : null}
     </PageShell>
   );
 }

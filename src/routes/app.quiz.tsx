@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { quizQuestions } from "@/data/mock";
+import { generateAIQuiz, type QuizQuestion } from "@/lib/ai-service";
+import { addXPToSupabase } from "@/lib/supabase-service";
 
 export const Route = createFileRoute("/app/quiz")({
   head: () => ({
@@ -60,31 +61,38 @@ function QuizPage() {
   const [count, setCount] = useState<number>(5);
   const [type, setType] = useState("MCQ");
   const [state, setState] = useState<"idle" | "loading" | "ready">("idle");
+  const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [answers, setAnswers] = useState<Record<number, number>>({});
 
   const solved = Object.keys(answers).length;
-  const isComplete = solved === quizQuestions.length;
+  const isComplete = questions.length > 0 && solved === questions.length;
 
   const correctCount = Object.entries(answers).filter(
-    ([qi, oi]) => quizQuestions[Number(qi)].answer === oi
+    ([qi, oi]) => questions[Number(qi)]?.answer === oi
   ).length;
 
-  function generate() {
+  async function generate() {
     setAnswers({});
     setState("loading");
-    toast.info(`Generating ${count} ${difficulty} ${type} questions on "${topic}"...`);
-    setTimeout(() => {
+    toast.info(`Generating ${count} ${difficulty} questions on "${topic}"...`);
+    try {
+      const generated = await generateAIQuiz(topic, count, difficulty);
+      setQuestions(generated);
       setState("ready");
-      toast.success("Quiz generated successfully!");
-    }, 1200);
+      toast.success("AI Quiz generated successfully!");
+    } catch {
+      toast.error("Failed to generate quiz.");
+      setState("idle");
+    }
   }
 
-  function pick(qi: number, oi: number) {
+  async function pick(qi: number, oi: number) {
     if (answers[qi] !== undefined) return;
     setAnswers((a) => {
       const next = { ...a, [qi]: oi };
-      if (Object.keys(next).length === quizQuestions.length) {
-        toast.success("🎉 Quiz complete! +50 XP earned.");
+      if (Object.keys(next).length === questions.length) {
+        addXPToSupabase(50);
+        toast.success("🎉 Quiz complete! +50 XP saved to your Supabase profile.");
       }
       return next;
     });
@@ -119,19 +127,19 @@ function QuizPage() {
         </Button>
       </div>
 
-      {state === "loading" ? (
+      {state === "loading" && (
         <div className="space-y-3">
           {[0, 1, 2].map((i) => (
             <Skeleton key={i} className="h-32 rounded-2xl" />
           ))}
         </div>
-      ) : null}
+      )}
 
-      {state === "ready" ? (
+      {state === "ready" && (
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-muted-foreground">
-              {solved}/{quizQuestions.length} answered · {difficulty} · {type}
+              {solved}/{questions.length} answered · {difficulty} · {type}
             </p>
             <Button
               size="sm"
@@ -147,65 +155,84 @@ function QuizPage() {
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="glass gradient-brand text-primary-foreground rounded-2xl p-5"
+              className="glass gradient-brand flex items-center justify-between rounded-2xl p-5 text-primary-foreground"
             >
               <div className="flex items-center gap-3">
-                <Trophy className="h-8 w-8 text-warning" />
+                <Trophy className="h-8 w-8 text-yellow-300 animate-bounce" />
                 <div>
-                  <h3 className="font-display font-bold text-lg">Quiz Finished!</h3>
+                  <h3 className="font-display font-bold text-lg">Quiz Complete!</h3>
                   <p className="text-xs opacity-90">
-                    You scored {correctCount} / {quizQuestions.length} correct ({Math.round((correctCount / quizQuestions.length) * 100)}%). +50 XP added to your rank.
+                    You scored {correctCount}/{questions.length} ({Math.round((correctCount / questions.length) * 100)}%)
                   </p>
                 </div>
               </div>
+              <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-bold">+50 XP Earned</span>
             </motion.div>
           )}
 
-          {quizQuestions.map((q, qi) => (
-            <motion.div
-              key={q.q}
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: qi * 0.07 }}
-              className="glass rounded-2xl p-5"
-            >
-              <p className="font-medium">
-                {qi + 1}. {q.q}
-              </p>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                {q.options.map((o, oi) => {
-                  const chosen = answers[qi] === oi;
-                  const correct = oi === q.answer;
-                  const showCorrectness = answers[qi] !== undefined;
-
-                  let borderClass = "border-glass-border bg-glass hover:bg-muted";
-                  if (showCorrectness) {
-                    if (correct) {
-                      borderClass = "border-success bg-success/20 text-foreground font-semibold";
-                    } else if (chosen) {
-                      borderClass = "border-destructive bg-destructive/20 text-foreground";
-                    }
-                  }
-
-                  return (
-                    <button
-                      key={o}
-                      onClick={() => pick(qi, oi)}
-                      disabled={showCorrectness}
-                      className={`flex items-center justify-between rounded-xl border px-4 py-2.5 text-left text-sm transition-all ${borderClass}`}
+          {questions.map((q, qi) => {
+            const chosen = answers[qi];
+            const isAnswered = chosen !== undefined;
+            return (
+              <motion.div
+                key={qi}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: qi * 0.05 }}
+                className="glass space-y-3 rounded-2xl p-5"
+              >
+                <div className="flex justify-between items-start gap-2">
+                  <p className="font-medium">
+                    {qi + 1}. {q.q}
+                  </p>
+                  {isAnswered && (
+                    <span
+                      className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                        chosen === q.answer ? "bg-emerald-500/20 text-emerald-500" : "bg-red-500/20 text-red-500"
+                      }`}
                     >
-                      <span className="min-w-0 truncate">{o}</span>
-                      {showCorrectness && correct ? (
-                        <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
-                      ) : null}
-                    </button>
-                  );
-                })}
-              </div>
-            </motion.div>
-          ))}
+                      {chosen === q.answer ? "Correct" : "Incorrect"}
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {q.options.map((opt, oi) => {
+                    const picked = chosen === oi;
+                    const isRight = q.answer === oi;
+
+                    let style = "border-glass-border bg-glass hover:bg-muted";
+                    if (isAnswered) {
+                      if (isRight) style = "border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold";
+                      else if (picked) style = "border-red-500 bg-red-500/10 text-red-500 font-semibold";
+                      else style = "opacity-50 border-glass-border";
+                    }
+
+                    return (
+                      <button
+                        key={oi}
+                        disabled={isAnswered}
+                        onClick={() => pick(qi, oi)}
+                        className={`flex items-center gap-2 rounded-xl border p-3 text-left text-xs transition-all ${style}`}
+                      >
+                        <span className="font-mono text-muted-foreground">{String.fromCharCode(65 + oi)}.</span>
+                        <span className="flex-1">{opt}</span>
+                        {isAnswered && isRight && <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {isAnswered && (
+                  <p className="text-xs text-muted-foreground bg-muted/40 p-2.5 rounded-xl border border-glass-border">
+                    💡 <span className="font-semibold">Explanation:</span> {q.explanation}
+                  </p>
+                )}
+              </motion.div>
+            );
+          })}
         </div>
-      ) : null}
+      )}
     </PageShell>
   );
 }

@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { PageShell } from "@/components/PageShell";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { chapters } from "@/data/mock";
+import { summarizePDF } from "@/lib/ai-service";
 
 export const Route = createFileRoute("/app/pdf")({
   head: () => ({
@@ -25,7 +25,7 @@ function PdfPage() {
   const [progress, setProgress] = useState(0);
   const [done, setDone] = useState(false);
   const [summarising, setSummarising] = useState(false);
-  const [summary, setSummary] = useState(false);
+  const [aiChapters, setAiChapters] = useState<{ name: string; pages: string; summary: string }[]>([]);
   const [fileName, setFileName] = useState("Physics-Class12-Mechanics.pdf");
   const [fileSize, setFileSize] = useState("4.8 MB");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -54,7 +54,7 @@ function PdfPage() {
     }
     setProgress(0);
     setDone(false);
-    setSummary(false);
+    setAiChapters([]);
     setUploading(true);
   }
 
@@ -62,6 +62,19 @@ function PdfPage() {
     const file = e.target.files?.[0];
     if (file) {
       startWithFile(file);
+    }
+  }
+
+  async function handleSummarize() {
+    setSummarising(true);
+    try {
+      const res = await summarizePDF(fileName);
+      setAiChapters(res);
+      toast.success("AI chapter breakdown generated!");
+    } catch {
+      toast.error("Failed to generate PDF summary.");
+    } finally {
+      setSummarising(false);
     }
   }
 
@@ -109,49 +122,50 @@ function PdfPage() {
           <div className="mt-4 h-2 overflow-hidden rounded-full bg-muted">
             <div className="h-full gradient-brand transition-all" style={{ width: `${progress}%` }} />
           </div>
-          {done ? (
+
+          {done && aiChapters.length === 0 && (
             <Button
-              onClick={() => {
-                setSummarising(true);
-                setTimeout(() => {
-                  setSummarising(false);
-                  setSummary(true);
-                  toast.success("AI Summary generated!");
-                }, 1500);
-              }}
-              className="mt-4 gradient-brand border-0 text-primary-foreground hover-lift"
+              disabled={summarising}
+              onClick={handleSummarize}
+              className="mt-5 w-full gradient-brand border-0 text-primary-foreground hover-lift"
             >
-              <Sparkles className="mr-1 h-4 w-4" /> Generate summary
+              <Sparkles className="mr-2 h-4 w-4" />
+              {summarising ? "AI analyzing document..." : "Generate AI Chapter Breakdown"}
             </Button>
-          ) : null}
+          )}
         </div>
       )}
 
-      {summarising ? (
-        <div className="space-y-3">
-          {[0, 1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-20 rounded-2xl" />
-          ))}
+      {summarising && (
+        <div className="space-y-4">
+          <Skeleton className="h-24 w-full rounded-2xl" />
+          <Skeleton className="h-24 w-full rounded-2xl" />
         </div>
-      ) : null}
+      )}
 
-      {summary ? (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {chapters.map((c, i) => (
-            <motion.div
-              key={c.name}
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.08 }}
-              className="glass hover-lift rounded-2xl p-5"
-            >
-              <p className="font-display font-semibold">{c.name}</p>
-              <p className="mt-1 text-xs text-primary">Pages {c.pages}</p>
-              <p className="mt-2 text-sm text-muted-foreground">{c.summary}</p>
-            </motion.div>
-          ))}
+      {aiChapters.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="font-display text-lg font-bold">AI Chapter Breakdown</h2>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {aiChapters.map((c, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.1 }}
+                className="glass space-y-2 rounded-2xl p-5"
+              >
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Pages {c.pages}</span>
+                  <span className="rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">Summary</span>
+                </div>
+                <h3 className="font-display font-semibold">{c.name}</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">{c.summary}</p>
+              </motion.div>
+            ))}
+          </div>
         </div>
-      ) : null}
+      )}
     </PageShell>
   );
 }
