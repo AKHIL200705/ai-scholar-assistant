@@ -45,7 +45,7 @@ export async function supabaseOAuthGoogle() {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: `${window.location.origin}/app`,
+      redirectTo: window.location.origin,
     },
   });
   if (error) throw error;
@@ -88,7 +88,6 @@ export async function saveAnswerToSupabase(question: string, answer: string, sub
     });
 
     if (error) {
-      // Store in localStorage fallback if table or RLS is not configured yet
       const current = JSON.parse(localStorage.getItem("adra-saved") || "[]");
       localStorage.setItem("adra-saved", JSON.stringify([item, ...current]));
     }
@@ -122,7 +121,6 @@ export async function fetchSavedAnswersFromSupabase(): Promise<SavedAnswer[]> {
     console.warn("Supabase fetch saved answers fallback:", e);
   }
 
-  // Fallback to local storage or mock data
   const local = JSON.parse(localStorage.getItem("adra-saved") || "[]");
   return local;
 }

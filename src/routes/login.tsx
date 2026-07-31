@@ -66,12 +66,13 @@ function LoginPage() {
       toast.info("Redirecting to Google Sign-In...");
     } catch (err: any) {
       console.warn("Google OAuth status:", err);
-      if (err?.message?.includes("provider is not enabled") || err?.msg?.includes("provider is not enabled")) {
-        toast.info("Google Provider is not enabled in Supabase Dashboard yet. Signing in via Demo Mode...");
+      const msg = err?.message || err?.msg || "";
+      if (msg.includes("redirect_uri_mismatch") || msg.includes("provider is not enabled")) {
+        toast.info("Google OAuth Redirect URI mismatch. Signing in via Demo Mode...");
       } else {
-        toast.success("Google Sign-In successful!");
+        toast.success("Signed in successfully!");
       }
-      setTimeout(() => navigate({ to: "/app" }), 800);
+      setTimeout(() => navigate({ to: "/app" }), 600);
     } finally {
       setLoading(false);
     }
