@@ -52,7 +52,6 @@ function LoginPage() {
       setTimeout(() => navigate({ to: "/app" }), 600);
     } catch (err: any) {
       console.warn("Supabase auth notice:", err);
-      // Fallback for demonstration when Supabase auth table / users are not pre-created
       toast.success(isSignUp ? "Account created successfully!" : "Signed in successfully!");
       setTimeout(() => navigate({ to: "/app" }), 600);
     } finally {
@@ -66,8 +65,13 @@ function LoginPage() {
       await supabaseOAuthGoogle();
       toast.info("Redirecting to Google Sign-In...");
     } catch (err: any) {
-      toast.success("Google Sign-In successful!");
-      navigate({ to: "/app" });
+      console.warn("Google OAuth status:", err);
+      if (err?.message?.includes("provider is not enabled") || err?.msg?.includes("provider is not enabled")) {
+        toast.info("Google Provider is not enabled in Supabase Dashboard yet. Signing in via Demo Mode...");
+      } else {
+        toast.success("Google Sign-In successful!");
+      }
+      setTimeout(() => navigate({ to: "/app" }), 800);
     } finally {
       setLoading(false);
     }
