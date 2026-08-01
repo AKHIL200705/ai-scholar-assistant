@@ -9,6 +9,7 @@ import { useEffect } from "react";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { ThemeProvider } from "../lib/theme";
 import { Toaster } from "../components/ui/sonner";
+import { createClient } from "../utils/supabase/client";
 
 function NotFoundComponent() {
   return (
@@ -21,10 +22,10 @@ function NotFoundComponent() {
         </p>
         <div className="mt-6">
           <Link
-            to="/"
+            to="/app"
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
-            Go home
+            Go to AI Workspace
           </Link>
         </div>
       </div>
@@ -59,10 +60,10 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
             Try again
           </button>
           <a
-            href="/"
+            href="/app"
             className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
-            Go home
+            Go to AI Workspace
           </a>
         </div>
       </div>
@@ -78,6 +79,21 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
+  useEffect(() => {
+    // Automatically capture Supabase auth token redirects (#access_token=... or ?code=...)
+    if (typeof window !== "undefined") {
+      const hash = window.location.hash;
+      const search = window.location.search;
+      if (hash.includes("access_token") || search.includes("code=")) {
+        const supabase = createClient();
+        supabase.auth.getSession().then(() => {
+          localStorage.setItem("adra-authenticated", "true");
+          window.location.href = "/app";
+        });
+      }
+    }
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
