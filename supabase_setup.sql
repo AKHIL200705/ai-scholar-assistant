@@ -1,5 +1,5 @@
 -- ========================================================
--- AI Doubt Resolution Assistant — Supabase Database Schema
+-- AI Doubt Resolution Assistant — Safe Idempotent SQL Setup
 -- Run this script in Supabase Dashboard SQL Editor
 -- ========================================================
 
@@ -15,6 +15,11 @@ create table if not exists public.saved_answers (
 
 -- Enable Row Level Security (RLS)
 alter table public.saved_answers enable row level security;
+
+-- Drop existing policies if re-running
+drop policy if exists "Users can view their own saved answers" on public.saved_answers;
+drop policy if exists "Users can insert their own saved answers" on public.saved_answers;
+drop policy if exists "Users can delete their own saved answers" on public.saved_answers;
 
 -- RLS Policies for saved_answers
 create policy "Users can view their own saved answers" 
@@ -45,6 +50,12 @@ create table if not exists public.profiles (
 -- Enable Row Level Security (RLS)
 alter table public.profiles enable row level security;
 
+-- Drop existing policies if re-running
+drop policy if exists "Users can view their own profile" on public.profiles;
+drop policy if exists "Users can insert their own profile" on public.profiles;
+drop policy if exists "Users can upsert their own profile" on public.profiles;
+drop policy if exists "Users can update their own profile" on public.profiles;
+
 -- RLS Policies for profiles
 create policy "Users can view their own profile" 
   on public.profiles 
@@ -52,7 +63,7 @@ create policy "Users can view their own profile"
   to authenticated 
   using (auth.uid() = id);
 
-create policy "Users can upsert their own profile" 
+create policy "Users can insert their own profile" 
   on public.profiles 
   for insert 
   to authenticated 
