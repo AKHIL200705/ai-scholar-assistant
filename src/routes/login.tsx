@@ -67,8 +67,12 @@ function LoginPage() {
     } catch (err: any) {
       console.warn("Google OAuth status:", err);
       const msg = err?.message || err?.msg || "";
-      if (msg.includes("redirect_uri_mismatch") || msg.includes("provider is not enabled")) {
-        toast.info("Google OAuth Redirect URI mismatch. Signing in via Demo Mode...");
+      if (
+        msg.includes("org_internal") ||
+        msg.includes("redirect_uri_mismatch") ||
+        msg.includes("provider is not enabled")
+      ) {
+        toast.info("Google OAuth User Type is set to Internal. Signing in via Demo Mode...");
       } else {
         toast.success("Signed in successfully!");
       }
