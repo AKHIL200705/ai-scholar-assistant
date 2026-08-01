@@ -9,6 +9,7 @@ import { useEffect } from "react";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { ThemeProvider } from "../lib/theme";
 import { Toaster } from "../components/ui/sonner";
+import AuthProvider from "../components/AuthProvider";
 import { createClient } from "../utils/supabase/client";
 
 function NotFoundComponent() {
@@ -81,7 +82,6 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   useEffect(() => {
-    // Automatically capture Supabase auth token redirects (#access_token=... or ?code=...)
     if (typeof window !== "undefined") {
       const hash = window.location.hash;
       const search = window.location.search;
@@ -98,7 +98,9 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <Outlet />
+        <AuthProvider>
+          <Outlet />
+        </AuthProvider>
         <Toaster />
       </ThemeProvider>
     </QueryClientProvider>
