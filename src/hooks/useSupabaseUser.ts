@@ -15,13 +15,13 @@ export interface UserProfileState {
 
 export function useSupabaseUser() {
   const [profile, setProfile] = useState<UserProfileState>({
-    name: mockUser.name,
-    email: mockUser.email,
-    initials: mockUser.initials,
-    level: mockUser.level,
-    xp: mockUser.xp,
-    xpToNext: mockUser.xpToNext,
-    streak: mockUser.streak,
+    name: "",
+    email: "",
+    initials: "",
+    level: 1,
+    xp: 0,
+    xpToNext: 1000,
+    streak: 1,
   });
   const [loading, setLoading] = useState(true);
 
