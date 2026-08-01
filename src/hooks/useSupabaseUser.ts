@@ -25,44 +25,58 @@ export function useSupabaseUser() {
   });
   const [loading, setLoading] = useState(true);
 
+  const updateUserProfile = (user: any) => {
+    if (!user) return;
+    console.log("Updating User Profile from Supabase Auth User:", user);
+    const meta = user.user_metadata || {};
+    
+    // Read name from all possible Google / OAuth metadata fields
+    const name =
+      meta.full_name ||
+      meta.name ||
+      meta.given_name ||
+      (meta.family_name ? `${meta.given_name || ''} ${meta.family_name}`.trim() : "") ||
+      user.email?.split("@")[0] ||
+      "User";
+
+    const email = user.email || meta.email || "";
+    const avatarUrl = meta.avatar_url || meta.picture;
+
+    console.log("Extracted Profile Name:", name);
+    console.log("Extracted Profile Email:", email);
+    console.log("Extracted Profile Avatar:", avatarUrl);
+
+    const initials =
+      name
+        .split(" ")
+        .map((part: string) => part[0])
+        .filter(Boolean)
+        .slice(0, 2)
+        .join("")
+        .toUpperCase() || "U";
+
+    setProfile((prev) => ({
+      ...prev,
+      name,
+      email,
+      avatarUrl,
+      initials,
+    }));
+  };
+
   useEffect(() => {
     async function loadUser() {
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+        // 1. Get active session directly
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          updateUserProfile(session.user);
+        }
 
+        // 2. Fetch authenticated user details
+        const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          console.log("Supabase Authenticated User:", user);
-          const meta = user.user_metadata || {};
-          const name =
-            meta.full_name ||
-            meta.name ||
-            user.email?.split("@")[0] ||
-            "User";
-          const email = user.email || meta.email || "";
-          const avatarUrl = meta.avatar_url || meta.picture;
-
-          console.log("User Profile Name:", name);
-          console.log("User Profile Email:", email);
-          console.log("User Profile Avatar:", avatarUrl);
-
-          const initials =
-            name
-              .split(" ")
-              .map((part: string) => part[0])
-              .filter(Boolean)
-              .slice(0, 2)
-              .join("")
-              .toUpperCase() || "U";
-
-          setProfile((prev) => ({
-            ...prev,
-            name,
-            email,
-            avatarUrl,
-            initials,
-          }));
+          updateUserProfile(user);
         }
       } catch (err) {
         console.warn("Failed to fetch Supabase user metadata:", err);
@@ -76,33 +90,7 @@ export function useSupabaseUser() {
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         if (session?.user) {
-          const user = session.user;
-          console.log("onAuthStateChange Supabase User:", user);
-          const meta = user.user_metadata || {};
-          const name =
-            meta.full_name ||
-            meta.name ||
-            user.email?.split("@")[0] ||
-            "User";
-          const email = user.email || meta.email || "";
-          const avatarUrl = meta.avatar_url || meta.picture;
-
-          const initials =
-            name
-              .split(" ")
-              .map((part: string) => part[0])
-              .filter(Boolean)
-              .slice(0, 2)
-              .join("")
-              .toUpperCase() || "U";
-
-          setProfile((prev) => ({
-            ...prev,
-            name,
-            email,
-            avatarUrl,
-            initials,
-          }));
+          updateUserProfile(session.user);
         }
       }
     );
