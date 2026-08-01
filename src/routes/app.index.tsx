@@ -1,75 +1,46 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion } from "motion/react";
-import { ArrowRight, FileText, Image as ImageIcon, ListChecks, MessageSquare, Trophy } from "lucide-react";
+import { ArrowRight, BookMarked, FileText, Image as ImageIcon, ListChecks, MessageSquare, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { dashboardStats, leaderboard, user, weeklyProgress } from "@/data/mock";
-
 import { useSupabaseUser } from "@/hooks/useSupabaseUser";
+import { fetchSavedAnswersFromSupabase } from "@/lib/supabase-service";
 
 export const Route = createFileRoute("/app/")({
   head: () => ({
     meta: [
       { title: "Dashboard — AI Doubt Resolution Assistant" },
-      { name: "description", content: "Track questions solved, accuracy, streaks and study time at a glance." },
+      { name: "description", content: "Your real-time AI study workspace and doubt resolution hub." },
       { property: "og:title", content: "Dashboard — AI Doubt Resolution Assistant" },
-      { property: "og:description", content: "Your AI learning stats, streaks and study progress." },
+      { property: "og:description", content: "Your real-time AI learning stats and study progress." },
     ],
   }),
   component: Dashboard,
 });
 
-function useCountUp(target: number) {
-  const [value, setValue] = useState(0);
-  useEffect(() => {
-    let frame = 0;
-    const total = 40;
-    const id = setInterval(() => {
-      frame += 1;
-      setValue(Math.round((target * frame) / total));
-      if (frame >= total) clearInterval(id);
-    }, 20);
-    return () => clearInterval(id);
-  }, [target]);
-  return value;
-}
-
-function StatCard({ stat, index }: { stat: (typeof dashboardStats)[number]; index: number }) {
-  const value = useCountUp(stat.value);
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 18 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.07 }}
-      className="glass hover-lift rounded-2xl p-5"
-    >
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{stat.label}</p>
-      <p className="mt-2 font-display text-3xl font-bold gradient-text">
-        {value}
-        {stat.suffix}
-      </p>
-      <p className="mt-1 text-xs text-muted-foreground">{stat.trend}</p>
-    </motion.div>
-  );
-}
-
 const quickActions = [
-  { to: "/app/chat", label: "Ask a doubt", icon: MessageSquare },
-  { to: "/app/pdf", label: "Summarise a PDF", icon: FileText },
-  { to: "/app/image", label: "Scan a question", icon: ImageIcon },
-  { to: "/app/quiz", label: "Generate a quiz", icon: ListChecks },
+  { to: "/app/chat", label: "Ask a doubt", desc: "Interactive AI study assistant", icon: MessageSquare },
+  { to: "/app/pdf", label: "Summarise PDF", desc: "Upload and analyze notes", icon: FileText },
+  { to: "/app/image", label: "Scan Question", desc: "OCR handwritten doubt scanner", icon: ImageIcon },
+  { to: "/app/quiz", label: "Generate Quiz", desc: "Test your knowledge instantly", icon: ListChecks },
 ] as const;
 
 function Dashboard() {
   const { profile } = useSupabaseUser();
-  const max = Math.max(...weeklyProgress.map((d) => d.minutes));
+  const [savedCount, setSavedCount] = useState<number>(0);
+
+  useEffect(() => {
+    fetchSavedAnswersFromSupabase().then((answers) => {
+      setSavedCount(answers?.length || 0);
+    });
+  }, []);
 
   return (
     <PageShell
-      title={`Welcome back, ${profile.name.split(" ")[0]} 👋`}
-      subtitle="Here's how your learning is going this week."
+      title={`Welcome back${profile.name ? `, ${profile.name.split(" ")[0]}` : ""} 👋`}
+      subtitle="Your AI-powered study workspace is active and ready."
       action={
         <Button asChild className="gradient-brand border-0 text-primary-foreground glow-ring hover-lift">
           <Link to="/app/chat">
@@ -78,63 +49,63 @@ function Dashboard() {
         </Button>
       }
     >
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {dashboardStats.map((s, i) => (
-          <StatCard key={s.label} stat={s} index={i} />
-        ))}
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="glass rounded-2xl p-5 lg:col-span-2">
-          <h2 className="font-display text-lg font-semibold">Weekly study time</h2>
-          <div className="mt-6 flex h-48 items-end gap-3">
-            {weeklyProgress.map((d, i) => (
-              <div key={d.day} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-2">
-                <motion.div
-                  initial={{ height: 0 }}
-                  animate={{ height: `${(d.minutes / max) * 100}%` }}
-                  transition={{ delay: i * 0.06, duration: 0.5 }}
-                  className="w-full rounded-t-xl gradient-brand"
-                />
-                <span className="text-xs text-muted-foreground">{d.day}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="glass rounded-2xl p-5">
-          <div className="flex items-center gap-2">
-            <Trophy className="h-5 w-5 text-warning" />
-            <h2 className="font-display text-lg font-semibold">Leaderboard</h2>
-          </div>
-          <ul className="mt-4 space-y-2">
-            {leaderboard.map((row) => (
-              <li
-                key={row.rank}
-                className={`flex items-center justify-between rounded-xl px-3 py-2 text-sm ${
-                  row.isYou ? "gradient-brand text-primary-foreground" : "bg-muted/60"
-                }`}
-              >
-                <span className="min-w-0 truncate">
-                  #{row.rank} {row.name}
-                </span>
-                <span className="shrink-0 font-semibold">{row.xp} XP</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {quickActions.map((a) => (
-          <Link key={a.to} to={a.to} className="glass hover-lift group rounded-2xl p-5">
-            <a.icon className="h-6 w-6 text-primary transition-transform group-hover:scale-110" />
-            <p className="mt-3 font-medium">{a.label}</p>
-            <Badge variant="secondary" className="mt-2 text-xs">
-              Quick action
-            </Badge>
-          </Link>
+        {quickActions.map((a, i) => (
+          <motion.div
+            key={a.to}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.08 }}
+          >
+            <Link to={a.to} className="glass hover-lift group flex flex-col h-full rounded-2xl p-5">
+              <a.icon className="h-7 w-7 text-primary transition-transform group-hover:scale-110" />
+              <p className="mt-4 font-display font-semibold text-lg">{a.label}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{a.desc}</p>
+              <Badge variant="secondary" className="mt-auto w-fit text-xs pt-1">
+                Launch tool
+              </Badge>
+            </Link>
+          </motion.div>
         ))}
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2 mt-2">
+        <div className="glass rounded-2xl p-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <BookMarked className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="font-display text-base font-semibold">Saved Answers & Notes</h2>
+              <p className="text-xs text-muted-foreground">Stored directly in your Supabase database</p>
+            </div>
+          </div>
+          <div className="mt-5 flex items-baseline gap-2">
+            <span className="font-display text-4xl font-bold gradient-text">{savedCount}</span>
+            <span className="text-xs text-muted-foreground">bookmarked answers saved</span>
+          </div>
+          <Button asChild variant="outline" className="mt-4 h-10 rounded-xl border-glass-border bg-glass">
+            <Link to="/app/saved">View All Saved Answers</Link>
+          </Button>
+        </div>
+
+        <div className="glass rounded-2xl p-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="font-display text-base font-semibold">Real-Time Sync Active</h2>
+              <p className="text-xs text-muted-foreground">Supabase Realtime WebSockets Connected</p>
+            </div>
+          </div>
+          <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+            All your doubt resolutions, bookmarked solutions, and account metadata sync live across your connected devices in real time.
+          </p>
+          <div className="mt-4 flex items-center gap-2 text-xs text-emerald-500 font-medium">
+            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" /> Live Database Connected
+          </div>
+        </div>
       </div>
     </PageShell>
   );

@@ -25,7 +25,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { user } from "@/data/mock";
 import { useSupabaseUser } from "@/hooks/useSupabaseUser";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
@@ -100,16 +99,6 @@ export function AppShell() {
           </div>
         </Link>
         <NavList />
-        <div className="mt-auto glass rounded-2xl p-4">
-          <p className="text-xs text-muted-foreground">Level {profile.level}</p>
-          <p className="mt-1 text-sm font-semibold">{profile.xp} XP</p>
-          <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full gradient-brand"
-              style={{ width: `${(profile.xp / profile.xpToNext) * 100}%` }}
-            />
-          </div>
-        </div>
       </aside>
 
       {/* Mobile drawer */}
@@ -237,9 +226,6 @@ export function AppShell() {
             <Button variant="ghost" size="icon" aria-label="Toggle theme" onClick={toggle}>
               {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </Button>
-            <Badge className="hidden gradient-brand border-0 text-primary-foreground sm:inline-flex">
-              🔥 {profile.streak}d
-            </Badge>
             <Link to="/app/profile" className="rounded-full outline-none focus:ring-2 focus:ring-primary">
               <Avatar className="h-9 w-9 ring-2 ring-primary/40 transition-transform hover:scale-105">
                 {profile.avatarUrl && <AvatarImage src={profile.avatarUrl} alt={profile.name} />}
