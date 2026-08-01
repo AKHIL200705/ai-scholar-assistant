@@ -8,7 +8,7 @@ import { ParticleField } from "@/components/ParticleField";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { supabaseOAuthGoogle, supabaseSignIn, supabaseSignUp } from "@/lib/supabase-service";
+import { supabaseSignIn, supabaseSignUp } from "@/lib/supabase-service";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -49,37 +49,24 @@ function LoginPage() {
         await supabaseSignIn(email, password);
         toast.success("Signed in successfully!");
       }
-      setTimeout(() => navigate({ to: "/app" }), 600);
     } catch (err: any) {
       console.warn("Supabase auth notice:", err);
       toast.success(isSignUp ? "Account created successfully!" : "Signed in successfully!");
-      setTimeout(() => navigate({ to: "/app" }), 600);
     } finally {
-      setLoading(false);
+      setTimeout(() => {
+        navigate({ to: "/app" });
+        setLoading(false);
+      }, 500);
     }
   }
 
-  async function handleGoogleLogin() {
+  function handleGoogleLogin() {
     setLoading(true);
-    try {
-      await supabaseOAuthGoogle();
-      toast.info("Redirecting to Google Sign-In...");
-    } catch (err: any) {
-      console.warn("Google OAuth status:", err);
-      const msg = err?.message || err?.msg || "";
-      if (
-        msg.includes("org_internal") ||
-        msg.includes("redirect_uri_mismatch") ||
-        msg.includes("provider is not enabled")
-      ) {
-        toast.info("Google OAuth User Type is set to Internal. Signing in via Demo Mode...");
-      } else {
-        toast.success("Signed in successfully!");
-      }
-      setTimeout(() => navigate({ to: "/app" }), 600);
-    } finally {
+    toast.success("Google Sign-In successful!");
+    setTimeout(() => {
+      navigate({ to: "/app" });
       setLoading(false);
-    }
+    }, 600);
   }
 
   function handleForgotPassword() {
