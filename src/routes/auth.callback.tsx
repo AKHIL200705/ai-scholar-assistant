@@ -16,6 +16,15 @@ function Callback() {
           window.location.href
         );
 
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          console.log("Auth Callback - Logged in Supabase User:", user);
+          console.log("Auth Callback - User Metadata:", user.user_metadata);
+          console.log("User Full Name:", user.user_metadata?.full_name || user.user_metadata?.name);
+          console.log("User Email:", user.email || user.user_metadata?.email);
+          console.log("User Avatar URL:", user.user_metadata?.avatar_url || user.user_metadata?.picture);
+        }
+
         if (!error) {
           localStorage.setItem("adra-authenticated", "true");
           navigate({ to: "/app" });

@@ -20,12 +20,13 @@ import {
 import { useState } from "react";
 import { BrainMark } from "@/components/BrainMark";
 import { ParticleField } from "@/components/ParticleField";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { user } from "@/data/mock";
+import { useSupabaseUser } from "@/hooks/useSupabaseUser";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
@@ -61,6 +62,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 export function AppShell() {
+  const { profile } = useSupabaseUser();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { theme, toggle } = useTheme();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -240,8 +242,9 @@ export function AppShell() {
             </Badge>
             <Link to="/app/profile" className="rounded-full outline-none focus:ring-2 focus:ring-primary">
               <Avatar className="h-9 w-9 ring-2 ring-primary/40 transition-transform hover:scale-105">
+                {profile.avatarUrl && <AvatarImage src={profile.avatarUrl} alt={profile.name} />}
                 <AvatarFallback className="gradient-brand text-xs font-semibold text-primary-foreground">
-                  {user.initials}
+                  {profile.initials}
                 </AvatarFallback>
               </Avatar>
             </Link>

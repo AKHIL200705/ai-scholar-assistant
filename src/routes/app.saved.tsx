@@ -110,6 +110,11 @@ function SavedPage() {
               <Bookmark className="h-4 w-4 shrink-0 fill-primary text-primary" />
             </div>
             <p className="mt-3 font-medium leading-snug">{a.question}</p>
+            {a.answer && (
+              <p className="mt-2.5 text-xs text-muted-foreground line-clamp-3 bg-muted/40 p-2.5 rounded-xl border border-glass-border">
+                {a.answer}
+              </p>
+            )}
             <div className="mt-auto flex items-center justify-between pt-4 text-xs text-muted-foreground">
               <span>{a.date}</span>
               <Button

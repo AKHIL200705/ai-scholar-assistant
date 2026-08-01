@@ -6,13 +6,13 @@ export type ChatMessage = {
 };
 
 export const user = {
-  name: "Aarav Sharma",
-  email: "aarav.sharma@student.edu",
-  initials: "AS",
-  level: 12,
-  xp: 2450,
-  xpToNext: 3000,
-  streak: 14,
+  name: "Student",
+  email: "student@scholar.ai",
+  initials: "S",
+  level: 1,
+  xp: 1420,
+  xpToNext: 2000,
+  streak: 7,
   studyHours: 128,
 };
 
@@ -56,12 +56,12 @@ export const mockAnswer = (q: string) =>
   `Great question about "${q}".\n\nHere's the short version:\n\n1. Start from the core definition and identify what is given vs. what is asked.\n2. Apply the governing rule step by step, keeping units and assumptions explicit.\n3. Verify the result with a quick sanity check or a limiting case.\n\nTip: try re-explaining this in your own words — teaching it back is the fastest way to lock it in.`;
 
 export const savedAnswers = [
-  { id: "1", subject: "Physics", question: "Derive the equation of motion v = u + at", date: "12 Mar 2026" },
-  { id: "2", subject: "Mathematics", question: "Integration by parts with examples", date: "10 Mar 2026" },
-  { id: "3", subject: "DSA", question: "Time complexity of binary search", date: "08 Mar 2026" },
-  { id: "4", subject: "Programming", question: "Difference between list and tuple in Python", date: "05 Mar 2026" },
-  { id: "5", subject: "Chemistry", question: "Explain Le Chatelier's principle", date: "02 Mar 2026" },
-  { id: "6", subject: "CS Core", question: "Round robin CPU scheduling example", date: "28 Feb 2026" },
+  { id: "1", subject: "Physics", question: "Derive the equation of motion v = u + at", answer: "Using a = dv/dt, integrating from t=0 to t gives v - u = at, hence v = u + at.", date: "12 Mar 2026" },
+  { id: "2", subject: "Mathematics", question: "Integration by parts with examples", answer: "Formula: ∫ u dv = uv - ∫ v du. Choose u using ILATE rule.", date: "10 Mar 2026" },
+  { id: "3", subject: "DSA", question: "Time complexity of binary search", answer: "O(log n) time complexity because search space is halved in each step.", date: "08 Mar 2026" },
+  { id: "4", subject: "Programming", question: "Difference between list and tuple in Python", answer: "Lists are mutable [], while tuples are immutable (). Tuples are faster and hashable.", date: "05 Mar 2026" },
+  { id: "5", subject: "Chemistry", question: "Explain Le Chatelier's principle", answer: "If a dynamic equilibrium is disturbed, the position of equilibrium moves to counteract the change.", date: "02 Mar 2026" },
+  { id: "6", subject: "CS Core", question: "Round robin CPU scheduling example", answer: "Preemptive scheduling using fixed time quantum for process execution.", date: "28 Feb 2026" },
 ];
 
 export const chatHistory = [

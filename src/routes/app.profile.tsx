@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { motion } from "motion/react";
 import { PageShell } from "@/components/PageShell";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { badges, user, weeklyProgress } from "@/data/mock";
+import { badges, weeklyProgress } from "@/data/mock";
+import { useSupabaseUser } from "@/hooks/useSupabaseUser";
 
 export const Route = createFileRoute("/app/profile")({
   head: () => ({
@@ -55,6 +56,7 @@ function Ring({ value, label, sub }: { value: number; label: string; sub: string
 }
 
 function ProfilePage() {
+  const { profile } = useSupabaseUser();
   const max = Math.max(...weeklyProgress.map((d) => d.minutes));
 
   return (
@@ -62,29 +64,30 @@ function ProfilePage() {
       <div className="glass grid grid-cols-[auto_minmax(0,1fr)] items-center gap-4 rounded-3xl p-6 sm:flex sm:justify-between">
         <div className="flex min-w-0 items-center gap-4">
           <Avatar className="h-16 w-16 shrink-0 ring-4 ring-primary/30">
+            {profile.avatarUrl && <AvatarImage src={profile.avatarUrl} alt={profile.name} />}
             <AvatarFallback className="gradient-brand text-lg font-bold text-primary-foreground">
-              {user.initials}
+              {profile.initials}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0">
-            <h2 className="truncate font-display text-xl font-bold">{user.name}</h2>
-            <p className="truncate text-sm text-muted-foreground">{user.email}</p>
+            <h2 className="truncate font-display text-xl font-bold">{profile.name}</h2>
+            <p className="truncate text-sm text-muted-foreground">{profile.email}</p>
             <div className="mt-2 flex flex-wrap gap-2">
-              <Badge className="gradient-brand border-0 text-primary-foreground">Level {user.level}</Badge>
-              <Badge variant="secondary">{user.xp} XP</Badge>
-              <Badge variant="secondary">🔥 {user.streak}-day streak</Badge>
+              <Badge className="gradient-brand border-0 text-primary-foreground">Level {profile.level}</Badge>
+              <Badge variant="secondary">{profile.xp} XP</Badge>
+              <Badge variant="secondary">🔥 {profile.streak}-day streak</Badge>
             </div>
           </div>
         </div>
         <div className="col-span-2 w-full sm:w-56">
           <p className="text-xs text-muted-foreground">
-            {user.xp} / {user.xpToNext} XP to level {user.level + 1}
+            {profile.xp} / {profile.xpToNext} XP to level {profile.level + 1}
           </p>
           <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-muted">
             <motion.div
               className="h-full gradient-brand"
               initial={{ width: 0 }}
-              animate={{ width: `${(user.xp / user.xpToNext) * 100}%` }}
+              animate={{ width: `${(profile.xp / profile.xpToNext) * 100}%` }}
               transition={{ duration: 0.9 }}
             />
           </div>

@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { dashboardStats, leaderboard, user, weeklyProgress } from "@/data/mock";
 
+import { useSupabaseUser } from "@/hooks/useSupabaseUser";
+
 export const Route = createFileRoute("/app/")({
   head: () => ({
     meta: [
@@ -61,11 +63,12 @@ const quickActions = [
 ] as const;
 
 function Dashboard() {
+  const { profile } = useSupabaseUser();
   const max = Math.max(...weeklyProgress.map((d) => d.minutes));
 
   return (
     <PageShell
-      title={`Welcome back, ${user.name.split(" ")[0]} 👋`}
+      title={`Welcome back, ${profile.name.split(" ")[0]} 👋`}
       subtitle="Here's how your learning is going this week."
       action={
         <Button asChild className="gradient-brand border-0 text-primary-foreground glow-ring hover-lift">

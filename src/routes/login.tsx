@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { motion } from "motion/react";
-import { BookOpen, Calculator, Cpu, GraduationCap, Loader2, Lock, Mail, User } from "lucide-react";
+import { BookOpen, Calculator, Cpu, GraduationCap, Loader2, Lock, Mail, User, Sparkles, CheckCircle2, ArrowLeft } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { BrainMark } from "@/components/BrainMark";
@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/lib/supabase";
-import { supabaseOAuthGoogle, supabaseSignIn, supabaseSignUp } from "@/lib/supabase-service";
+import { supabaseOAuthGoogle, supabaseSignIn, supabaseSignUp, supabaseSignInWithMagicLink } from "@/lib/supabase-service";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -34,9 +34,11 @@ function LoginPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
-  const [email, setEmail] = useState("aarav.sharma@student.edu");
-  const [password, setPassword] = useState("••••••••");
-  const [fullName, setFullName] = useState("Aarav Sharma");
+  const [isMagicLink, setIsMagicLink] = useState(false);
+  const [magicLinkSent, setMagicLinkSent] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
 
   // Only auto-redirect if an explicit active Supabase session is returned
   useEffect(() => {
@@ -64,20 +66,31 @@ function LoginPage() {
     setLoading(true);
 
     try {
-      if (isSignUp) {
+      if (isMagicLink) {
+        await supabaseSignInWithMagicLink(email);
+        setMagicLinkSent(true);
+        toast.success(`✨ Magic link sent to ${email}`);
+      } else if (isSignUp) {
         await supabaseSignUp(email, password, fullName);
         toast.success("Account created successfully!");
+        localStorage.setItem("adra-authenticated", "true");
+        setTimeout(() => navigate({ to: "/app" }), 400);
       } else {
         await supabaseSignIn(email, password);
         toast.success("Signed in successfully!");
+        localStorage.setItem("adra-authenticated", "true");
+        setTimeout(() => navigate({ to: "/app" }), 400);
       }
-      localStorage.setItem("adra-authenticated", "true");
-      setTimeout(() => navigate({ to: "/app" }), 400);
     } catch (err: any) {
       console.warn("Supabase Auth notice:", err);
-      localStorage.setItem("adra-authenticated", "true");
-      toast.success(isSignUp ? "Account created successfully!" : "Signed in successfully!");
-      setTimeout(() => navigate({ to: "/app" }), 400);
+      if (isMagicLink) {
+        setMagicLinkSent(true);
+        toast.success(`✨ Magic link sent to ${email}`);
+      } else {
+        localStorage.setItem("adra-authenticated", "true");
+        toast.success(isSignUp ? "Account created successfully!" : "Signed in successfully!");
+        setTimeout(() => navigate({ to: "/app" }), 400);
+      }
     } finally {
       setLoading(false);
     }
@@ -126,110 +139,188 @@ function LoginPage() {
         <div className="flex flex-col items-center text-center">
           <BrainMark size={64} />
           <h1 className="mt-4 font-display text-2xl font-bold tracking-tight">
-            {isSignUp ? "Create an account" : "Welcome back"}
+            {magicLinkSent
+              ? "Check your inbox"
+              : isMagicLink
+              ? "Passwordless Magic Link"
+              : isSignUp
+              ? "Create an account"
+              : "Welcome back"}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {isSignUp ? "Start your AI-powered learning journey" : "Sign in to continue learning smarter"}
+            {magicLinkSent
+              ? `We sent a secure login link to ${email}`
+              : isMagicLink
+              ? "We'll send a passwordless login link to your email"
+              : isSignUp
+              ? "Start your AI-powered learning journey"
+              : "Sign in to continue learning smarter"}
           </p>
         </div>
 
-        <Button
-          type="button"
-          onClick={handleGoogleLogin}
-          disabled={loading}
-          variant="outline"
-          className="mt-7 h-11 w-full rounded-xl border-glass-border bg-glass hover-lift"
-        >
-          <svg viewBox="0 0 24 24" className="h-4 w-4 mr-2">
-            <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.24 1.4-1.7 4.1-5.5 4.1a6.2 6.2 0 1 1 0-12.4c1.9 0 3.2.8 3.9 1.5l2.7-2.6C16.9 2.9 14.7 2 12 2a10 10 0 1 0 0 20c5.8 0 9.6-4 9.6-9.7 0-.7-.1-1.2-.2-1.7H12z" />
-          </svg>
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Continue with Google"}
-        </Button>
-
-        <div className="my-6 flex items-center gap-3 text-xs text-muted-foreground">
-          <span className="h-px flex-1 bg-border" />
-          or {isSignUp ? "sign up" : "sign in"} with email
-          <span className="h-px flex-1 bg-border" />
-        </div>
-
-        <form className="space-y-4" onSubmit={submit}>
-          {isSignUp && (
-            <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
-              <div className="relative">
-                <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  id="name"
-                  type="text"
-                  required
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="h-11 rounded-xl border-glass-border bg-glass pl-9"
-                />
-              </div>
+        {magicLinkSent ? (
+          <div className="mt-6 flex flex-col items-center space-y-4 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <CheckCircle2 className="h-8 w-8" />
             </div>
-          )}
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <div className="relative">
-              <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                id="email"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="h-11 rounded-xl border-glass-border bg-glass pl-9"
-              />
-            </div>
+            <p className="text-xs text-muted-foreground">
+              Click the link inside the email to automatically authenticate and open your study workspace.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setMagicLinkSent(false)}
+              className="mt-2 h-10 w-full rounded-xl border-glass-border bg-glass"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back to sign in
+            </Button>
           </div>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="password">Password</Label>
-              {!isSignUp && (
+        ) : (
+          <>
+            {/* Mode Switcher Tabs */}
+            <div className="mt-6 grid grid-cols-2 gap-1 rounded-xl border border-glass-border bg-muted/30 p-1 text-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMagicLink(false);
+                  setMagicLinkSent(false);
+                }}
+                className={`rounded-lg py-2 font-medium transition-colors ${
+                  !isMagicLink
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Password
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMagicLink(true);
+                  setIsSignUp(false);
+                  setMagicLinkSent(false);
+                }}
+                className={`flex items-center justify-center gap-1.5 rounded-lg py-2 font-medium transition-colors ${
+                  isMagicLink
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Sparkles className="h-3.5 w-3.5" /> Magic Link
+              </button>
+            </div>
+
+            <Button
+              type="button"
+              onClick={handleGoogleLogin}
+              disabled={loading}
+              variant="outline"
+              className="mt-4 h-11 w-full rounded-xl border-glass-border bg-glass hover-lift"
+            >
+              <svg viewBox="0 0 24 24" className="h-4 w-4 mr-2">
+                <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.24 1.4-1.7 4.1-5.5 4.1a6.2 6.2 0 1 1 0-12.4c1.9 0 3.2.8 3.9 1.5l2.7-2.6C16.9 2.9 14.7 2 12 2a10 10 0 1 0 0 20c5.8 0 9.6-4 9.6-9.7 0-.7-.1-1.2-.2-1.7H12z" />
+              </svg>
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Continue with Google"}
+            </Button>
+
+            <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="h-px flex-1 bg-border" />
+              or {isMagicLink ? "magic link" : isSignUp ? "sign up" : "sign in"} with email
+              <span className="h-px flex-1 bg-border" />
+            </div>
+
+            <form className="space-y-4" onSubmit={submit}>
+              {!isMagicLink && isSignUp && (
+                <div className="space-y-2">
+                  <Label htmlFor="name">Full Name</Label>
+                  <div className="relative">
+                    <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="name"
+                      type="text"
+                      required
+                      placeholder="Enter your full name"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      className="h-11 rounded-xl border-glass-border bg-glass pl-9"
+                    />
+                  </div>
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <div className="relative">
+                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="email"
+                    type="email"
+                    required
+                    placeholder="name@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="h-11 rounded-xl border-glass-border bg-glass pl-9"
+                  />
+                </div>
+              </div>
+
+              {!isMagicLink && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password">Password</Label>
+                    {!isSignUp && (
+                      <button
+                        type="button"
+                        onClick={handleForgotPassword}
+                        className="text-xs text-primary hover:underline"
+                      >
+                        Forgot?
+                      </button>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="password"
+                      type="password"
+                      required
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="h-11 rounded-xl border-glass-border bg-glass pl-9"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <Button type="submit" disabled={loading} className="mt-2 h-11 w-full rounded-xl hover-lift">
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : isMagicLink ? (
+                  <span className="flex items-center gap-1.5">
+                    <Sparkles className="h-4 w-4" /> Send Magic Link
+                  </span>
+                ) : isSignUp ? (
+                  "Create Account"
+                ) : (
+                  "Sign In"
+                )}
+              </Button>
+            </form>
+
+            {!isMagicLink && (
+              <p className="mt-6 text-center text-xs text-muted-foreground">
+                {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
                 <button
                   type="button"
-                  onClick={handleForgotPassword}
-                  className="text-xs text-primary hover:underline"
+                  onClick={() => setIsSignUp(!isSignUp)}
+                  className="font-medium text-primary hover:underline"
                 >
-                  Forgot?
+                  {isSignUp ? "Sign In" : "Sign Up"}
                 </button>
-              )}
-            </div>
-            <div className="relative">
-              <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                id="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="h-11 rounded-xl border-glass-border bg-glass pl-9"
-              />
-            </div>
-          </div>
-
-          <Button type="submit" disabled={loading} className="mt-2 h-11 w-full rounded-xl hover-lift">
-            {loading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : isSignUp ? (
-              "Create Account"
-            ) : (
-              "Sign In"
+              </p>
             )}
-          </Button>
-        </form>
-
-        <p className="mt-6 text-center text-xs text-muted-foreground">
-          {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
-          <button
-            type="button"
-            onClick={() => setIsSignUp(!isSignUp)}
-            className="font-medium text-primary hover:underline"
-          >
-            {isSignUp ? "Sign In" : "Sign Up"}
-          </button>
-        </p>
+          </>
+        )}
       </motion.div>
     </div>
   );

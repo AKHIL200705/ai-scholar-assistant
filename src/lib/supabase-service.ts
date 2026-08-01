@@ -55,6 +55,21 @@ export async function supabaseSignIn(
 }
 
 // -----------------------------
+// Magic Link Sign In
+// -----------------------------
+export async function supabaseSignInWithMagicLink(email: string) {
+  const { data, error } = await supabase.auth.signInWithOtp({
+    email,
+    options: {
+      emailRedirectTo: `${window.location.origin}/auth/callback`,
+    },
+  });
+
+  if (error) throw error;
+  return data;
+}
+
+// -----------------------------
 // Google OAuth
 // -----------------------------
 export async function supabaseOAuthGoogle() {
@@ -62,7 +77,10 @@ export async function supabaseOAuthGoogle() {
     provider: "google",
     options: {
       redirectTo: `${window.location.origin}/auth/callback`,
-      skipBrowserRedirect: false,
+      queryParams: {
+        access_type: "offline",
+        prompt: "consent",
+      },
     },
   });
 
