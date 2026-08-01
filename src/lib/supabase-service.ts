@@ -1,4 +1,4 @@
-import { createClient } from "@/utils/supabase/client";
+import { supabase } from "./supabase";
 
 export interface SavedAnswer {
   id: string;
@@ -16,57 +16,77 @@ export interface StoredChatMessage {
   subject?: string;
 }
 
-// 1. Auth Service
-export async function supabaseSignIn(email: string, pass: string) {
-  const supabase = createClient();
-  const { data, error } = await supabase.auth.signInWithPassword({
+// -----------------------------
+// 1. Authentication Service
+// -----------------------------
+
+export async function supabaseSignUp(
+  email: string,
+  password: string,
+  fullName: string
+) {
+  const { data, error } = await supabase.auth.signUp({
     email,
-    password: pass,
+    password,
+    options: {
+      data: {
+        full_name: fullName,
+      },
+    },
   });
+
   if (error) throw error;
   return data;
 }
 
-export async function supabaseSignUp(email: string, pass: string, name: string) {
-  const supabase = createClient();
-  const { data, error } = await supabase.auth.signUp({
+export async function supabaseSignIn(
+  email: string,
+  password: string
+) {
+  const { data, error } = await supabase.auth.signInWithPassword({
     email,
-    password: pass,
-    options: {
-      data: { full_name: name },
-    },
+    password,
   });
+
   if (error) throw error;
   return data;
 }
 
 export async function supabaseOAuthGoogle() {
-  const supabase = createClient();
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: window.location.origin,
+      redirectTo: `${window.location.origin}/auth/callback`,
     },
   });
+
   if (error) throw error;
   return data;
 }
 
-export async function supabaseSignOut() {
-  const supabase = createClient();
+export async function resetPassword(email: string) {
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/reset-password`,
+  });
+
+  if (error) throw error;
+}
+
+export async function signOut() {
   const { error } = await supabase.auth.signOut();
-  if (error) console.error("SignOut error:", error);
+  if (error) throw error;
 }
 
 export async function getSupabaseUser() {
-  const supabase = createClient();
   const { data } = await supabase.auth.getUser();
   return data.user;
 }
 
+// -----------------------------
 // 2. Saved Answers Cloud Persistence
+// -----------------------------
+
 export async function saveAnswerToSupabase(question: string, answer: string, subject: string) {
-  const supabase = createClient();
   const user = await getSupabaseUser();
 
   const item: SavedAnswer = {
@@ -100,8 +120,6 @@ export async function saveAnswerToSupabase(question: string, answer: string, sub
 }
 
 export async function fetchSavedAnswersFromSupabase(): Promise<SavedAnswer[]> {
-  const supabase = createClient();
-
   try {
     const { data, error } = await supabase
       .from("saved_answers")
@@ -126,7 +144,6 @@ export async function fetchSavedAnswersFromSupabase(): Promise<SavedAnswer[]> {
 }
 
 export async function deleteSavedAnswerFromSupabase(id: string) {
-  const supabase = createClient();
   try {
     await supabase.from("saved_answers").delete().eq("id", id);
   } catch (e) {
@@ -137,9 +154,11 @@ export async function deleteSavedAnswerFromSupabase(id: string) {
   localStorage.setItem("adra-saved", JSON.stringify(filtered));
 }
 
+// -----------------------------
 // 3. User XP & Streak Updates
+// -----------------------------
+
 export async function addXPToSupabase(amount: number) {
-  const supabase = createClient();
   const user = await getSupabaseUser();
 
   const currentXp = Number(localStorage.getItem("adra-user-xp") || "1420") + amount;
@@ -151,7 +170,7 @@ export async function addXPToSupabase(amount: number) {
         .from("profiles")
         .upsert({ id: user.id, xp: currentXp, updated_at: new Date().toISOString() });
     } catch {
-      // Ignored if table not created
+      // Ignored if profiles table not created yet
     }
   }
 }
