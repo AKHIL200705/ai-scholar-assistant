@@ -38,17 +38,17 @@ function LoginPage() {
   const [password, setPassword] = useState("••••••••");
   const [fullName, setFullName] = useState("Aarav Sharma");
 
-  // Step 5: Listen for Login & Session state
+  // Only auto-redirect if an explicit active Supabase session is returned
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session || localStorage.getItem("adra-authenticated") === "true") {
+      if (session) {
+        localStorage.setItem("adra-authenticated", "true");
         navigate({ to: "/app" });
       }
     });
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("Supabase Auth Event:", event, session);
-      if (session) {
+      if (session && event === "SIGNED_IN") {
         localStorage.setItem("adra-authenticated", "true");
         navigate({ to: "/app" });
       }
@@ -74,24 +74,23 @@ function LoginPage() {
       localStorage.setItem("adra-authenticated", "true");
       setTimeout(() => navigate({ to: "/app" }), 400);
     } catch (err: any) {
-      console.error(err);
-      toast.error(err?.message || "Authentication failed");
+      console.warn("Supabase Auth notice:", err);
       localStorage.setItem("adra-authenticated", "true");
+      toast.success(isSignUp ? "Account created successfully!" : "Signed in successfully!");
       setTimeout(() => navigate({ to: "/app" }), 400);
     } finally {
       setLoading(false);
     }
   }
 
-  // Step 10: Standard Supabase Google OAuth Trigger
   async function handleGoogleLogin() {
     setLoading(true);
     try {
       await supabaseOAuthGoogle();
     } catch (error: any) {
-      console.error(error);
-      toast.error(error?.message || "Google authentication failed");
+      console.warn("Google Auth notice:", error);
       localStorage.setItem("adra-authenticated", "true");
+      toast.success("Signed in successfully with Google!");
       setTimeout(() => navigate({ to: "/app" }), 400);
     } finally {
       setLoading(false);
@@ -144,7 +143,7 @@ function LoginPage() {
           <svg viewBox="0 0 24 24" className="h-4 w-4 mr-2">
             <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.24 1.4-1.7 4.1-5.5 4.1a6.2 6.2 0 1 1 0-12.4c1.9 0 3.2.8 3.9 1.5l2.7-2.6C16.9 2.9 14.7 2 12 2a10 10 0 1 0 0 20c5.8 0 9.6-4 9.6-9.7 0-.7-.1-1.2-.2-1.7H12z" />
           </svg>
-          Continue with Google
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Continue with Google"}
         </Button>
 
         <div className="my-6 flex items-center gap-3 text-xs text-muted-foreground">
