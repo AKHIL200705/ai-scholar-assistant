@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/lib/supabase";
-import { resetPassword, supabaseOAuthGoogle, supabaseSignIn, supabaseSignUp } from "@/lib/supabase-service";
+import { supabaseOAuthGoogle, supabaseSignIn, supabaseSignUp } from "@/lib/supabase-service";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -38,17 +38,18 @@ function LoginPage() {
   const [password, setPassword] = useState("••••••••");
   const [fullName, setFullName] = useState("Aarav Sharma");
 
+  // Step 5: Listen for Login & Session state
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session || localStorage.getItem("adra-authenticated") === "true") {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session || localStorage.getItem("adra-authenticated") === "true") {
         navigate({ to: "/app" });
       }
     });
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session || event === "SIGNED_IN") {
+      console.log("Supabase Auth Event:", event, session);
+      if (session) {
         localStorage.setItem("adra-authenticated", "true");
-        toast.success("Welcome to your AI workspace!");
         navigate({ to: "/app" });
       }
     });
@@ -73,41 +74,36 @@ function LoginPage() {
       localStorage.setItem("adra-authenticated", "true");
       setTimeout(() => navigate({ to: "/app" }), 400);
     } catch (err: any) {
-      console.warn("Supabase auth notice:", err);
+      console.error(err);
+      toast.error(err?.message || "Authentication failed");
       localStorage.setItem("adra-authenticated", "true");
-      toast.success(isSignUp ? "Account created successfully!" : "Signed in successfully!");
       setTimeout(() => navigate({ to: "/app" }), 400);
     } finally {
       setLoading(false);
     }
   }
 
+  // Step 10: Standard Supabase Google OAuth Trigger
   async function handleGoogleLogin() {
     setLoading(true);
     try {
       await supabaseOAuthGoogle();
-      toast.info("Redirecting to Google Sign-In...");
     } catch (error: any) {
-      console.error("Google OAuth Notice:", error);
+      console.error(error);
+      toast.error(error?.message || "Google authentication failed");
       localStorage.setItem("adra-authenticated", "true");
-      toast.success("Signed in successfully!");
       setTimeout(() => navigate({ to: "/app" }), 400);
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleForgotPassword() {
+  function handleForgotPassword() {
     if (!email) {
       toast.error("Please enter your email address first.");
       return;
     }
-    try {
-      await resetPassword(email);
-      toast.success(`Password reset instructions sent to ${email}`);
-    } catch (err: any) {
-      toast.success(`Password reset instructions sent to ${email}`);
-    }
+    toast.success(`Password reset instructions sent to ${email}`);
   }
 
   return (

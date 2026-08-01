@@ -17,9 +17,8 @@ export interface StoredChatMessage {
 }
 
 // -----------------------------
-// 1. Authentication Service
+// Email Sign Up
 // -----------------------------
-
 export async function supabaseSignUp(
   email: string,
   password: string,
@@ -39,6 +38,9 @@ export async function supabaseSignUp(
   return data;
 }
 
+// -----------------------------
+// Email Sign In
+// -----------------------------
 export async function supabaseSignIn(
   email: string,
   password: string
@@ -52,6 +54,9 @@ export async function supabaseSignIn(
   return data;
 }
 
+// -----------------------------
+// Google OAuth
+// -----------------------------
 export async function supabaseOAuthGoogle() {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
@@ -64,6 +69,9 @@ export async function supabaseOAuthGoogle() {
   return data;
 }
 
+// -----------------------------
+// Forgot Password
+// -----------------------------
 export async function resetPassword(email: string) {
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${window.location.origin}/reset-password`,
@@ -72,9 +80,13 @@ export async function resetPassword(email: string) {
   if (error) throw error;
 }
 
+// -----------------------------
+// Logout
+// -----------------------------
 export async function signOut() {
   const { error } = await supabase.auth.signOut();
-  if (error) throw error;
+  if (error) console.error("SignOut error:", error);
+  localStorage.removeItem("adra-authenticated");
 }
 
 export async function getSupabaseUser() {
@@ -83,9 +95,8 @@ export async function getSupabaseUser() {
 }
 
 // -----------------------------
-// 2. Saved Answers Cloud Persistence
+// Saved Answers Cloud Persistence
 // -----------------------------
-
 export async function saveAnswerToSupabase(question: string, answer: string, subject: string) {
   const user = await getSupabaseUser();
 
@@ -155,9 +166,8 @@ export async function deleteSavedAnswerFromSupabase(id: string) {
 }
 
 // -----------------------------
-// 3. User XP & Streak Updates
+// User XP & Streak Updates
 // -----------------------------
-
 export async function addXPToSupabase(amount: number) {
   const user = await getSupabaseUser();
 
@@ -170,7 +180,7 @@ export async function addXPToSupabase(amount: number) {
         .from("profiles")
         .upsert({ id: user.id, xp: currentXp, updated_at: new Date().toISOString() });
     } catch {
-      // Ignored if profiles table not created yet
+      // Ignored if table not created
     }
   }
 }
