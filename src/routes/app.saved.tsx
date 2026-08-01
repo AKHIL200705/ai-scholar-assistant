@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { savedAnswers as mockSaved } from "@/data/mock";
+import { supabase } from "@/lib/supabase";
 import {
   deleteSavedAnswerFromSupabase,
   fetchSavedAnswersFromSupabase,
@@ -37,6 +38,23 @@ function SavedPage() {
         setItems(data);
       }
     });
+
+    const channel = supabase
+      .channel("realtime-saved-answers")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "saved_answers" },
+        () => {
+          fetchSavedAnswersFromSupabase().then((data) => {
+            if (data) setItems(data);
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const subjects = ["All", ...Array.from(new Set(items.map((a) => a.subject)))];

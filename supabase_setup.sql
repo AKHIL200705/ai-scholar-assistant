@@ -75,3 +75,7 @@ create policy "Users can update their own profile"
   to authenticated 
   using (auth.uid() = id) 
   with check (auth.uid() = id);
+
+-- 3. Enable Realtime Subscriptions
+alter publication supabase_realtime add table public.saved_answers;
+alter publication supabase_realtime add table public.profiles;
