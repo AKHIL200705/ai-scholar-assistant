@@ -1,4 +1,5 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+
 import { motion } from "motion/react";
 import { useEffect } from "react";
 import { BrainMark } from "@/components/BrainMark";
@@ -61,10 +62,30 @@ function Splash() {
         initial={{ width: 0 }}
         animate={{ width: 200 }}
         transition={{ delay: 1.1, duration: 1.8, ease: "easeInOut" }}
-        className="mt-10 h-1 overflow-hidden rounded-full"
+        className="mt-8 h-1 overflow-hidden rounded-full"
       >
         <div className="h-full w-full gradient-brand" />
+      </motion.div>
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 1.4 }}
+        className="mt-6 flex items-center gap-3"
+      >
+        <Link
+          to="/login"
+          className="rounded-xl gradient-brand px-6 py-2.5 text-sm font-semibold text-primary-foreground shadow-lg hover-lift"
+        >
+          Sign In / Login
+        </Link>
+        <Link
+          to="/app"
+          className="rounded-xl border border-glass-border bg-glass px-6 py-2.5 text-sm font-medium text-foreground hover:bg-muted hover-lift"
+        >
+          Explore Workspace
+        </Link>
       </motion.div>
     </div>
   );
 }
+

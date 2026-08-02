@@ -8,6 +8,7 @@ import {
   Home,
   Image as ImageIcon,
   ListChecks,
+  LogIn,
   Menu,
   MessageSquare,
   Moon,
@@ -39,7 +40,9 @@ const nav = [
   { to: "/app/saved", label: "Saved Answers", icon: BookMarked },
   { to: "/app/profile", label: "Profile", icon: User },
   { to: "/app/settings", label: "Settings", icon: Settings },
+  { to: "/login", label: "Sign In / Login", icon: LogIn },
 ] as const;
+
 
 function NavList({ onNavigate }: { onNavigate?: () => void }) {
   return (
