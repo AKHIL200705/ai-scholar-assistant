@@ -1,3 +1,6 @@
+import { getAiSettings } from "./supabase-service";
+import { supabase } from "./supabase";
+
 // Intelligent AI Academic Doubt Resolution Engine
 
 export interface AIResponse {
@@ -6,6 +9,7 @@ export interface AIResponse {
   topic: string;
   keyTakeaways: string[];
   practiceQuestion?: string;
+  provider?: string;
 }
 
 export interface QuizQuestion {
@@ -15,12 +19,88 @@ export interface QuizQuestion {
   explanation: string;
 }
 
-// Academic domain knowledge base and intelligent response generator
-export async function solveAcademicDoubt(prompt: string): Promise<AIResponse> {
+export interface AIOptions {
+  model?: string;
+  apiKey?: string;
+  messages?: { role: string; content: string }[];
+  useEdgeFunction?: boolean;
+}
+
+// Academic domain knowledge base and intelligent ChatGPT/OpenAI response generator
+export async function solveAcademicDoubt(prompt: string, options?: AIOptions): Promise<AIResponse> {
+  const settings = getAiSettings();
+  const apiKey = options?.apiKey || settings.apiKey || (import.meta.env?.VITE_OPENAI_API_KEY as string) || "";
+  const provider = options?.model || settings.provider || "gpt-4o-mini";
+
+  // 1. Try Supabase Edge Function if enabled or requested
+  if (options?.useEdgeFunction) {
+    try {
+      const { data, error } = await supabase.functions.invoke("chat-ai", {
+        body: { prompt, model: provider, apiKey, messages: options?.messages },
+      });
+      if (!error && data?.answer) {
+        return {
+          answer: data.answer,
+          subject: "AI Scholar (Supabase Edge)",
+          topic: provider,
+          keyTakeaways: ["Generated via Supabase Edge Function + ChatGPT AI."],
+          provider: `Supabase Edge (${provider})`,
+        };
+      }
+    } catch (err) {
+      console.warn("Supabase Edge Function fallback:", err);
+    }
+  }
+
+  // 2. Direct OpenAI ChatGPT API Call if API Key exists
+  if (apiKey && (provider.startsWith("gpt") || provider === "openai")) {
+    try {
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: provider === "openai" ? "gpt-4o-mini" : provider,
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are an expert AI Academic Tutor and Doubt Resolution Assistant. Provide clear, structured step-by-step answers with Markdown formatting, LaTeX formulas when relevant, and key takeaways.",
+            },
+            ...(options?.messages || [{ role: "user", content: prompt }]),
+          ],
+          temperature: 0.7,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const aiMessage = data.choices?.[0]?.message?.content;
+        if (aiMessage) {
+          return {
+            answer: aiMessage,
+            subject: "Academic Assistant",
+            topic: "ChatGPT AI Response",
+            keyTakeaways: [
+              "Powered by OpenAI ChatGPT API.",
+              "Persisted automatically in Supabase database.",
+            ],
+            provider: provider,
+          };
+        }
+      }
+    } catch (err) {
+      console.warn("Direct OpenAI API call error, using academic AI fallback:", err);
+    }
+  }
+
   const query = prompt.toLowerCase();
 
   // Simulated AI response delay for realistic streaming effect
-  await new Promise((resolve) => setTimeout(resolve, 1000));
+  await new Promise((resolve) => setTimeout(resolve, 800));
+
 
   if (query.includes("bayes") || query.includes("probability") || query.includes("conditional")) {
     return {

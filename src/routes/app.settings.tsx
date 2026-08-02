@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { PageShell } from "@/components/PageShell";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -15,6 +16,7 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { useTheme } from "@/lib/theme";
+import { getAiSettings, saveAiSettings } from "@/lib/supabase-service";
 
 export const Route = createFileRoute("/app/settings")({
   head: () => ({
@@ -43,12 +45,20 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
 function SettingsPage() {
   const { theme, toggle } = useTheme();
   const navigate = useNavigate();
+  const initialAi = getAiSettings();
   const [notifications, setNotifications] = useState(true);
   const [privacy, setPrivacy] = useState(false);
   const [fontSize, setFontSize] = useState([16]);
+  const [aiProvider, setAiProvider] = useState(initialAi.provider || "gpt-4o-mini");
+  const [openAiKey, setOpenAiKey] = useState(initialAi.apiKey || "");
+
+  const handleSaveAi = (key: string, provider: string) => {
+    saveAiSettings(key, provider);
+    toast.success("AI Settings updated & saved to Supabase profile!");
+  };
 
   return (
-    <PageShell title="Settings" subtitle="Personalise your study workspace.">
+    <PageShell title="Settings" subtitle="Personalise your study workspace & AI Engine.">
       <div className="glass rounded-3xl p-6">
         <Row label="Dark mode" hint="Switch between light and dark themes">
           <Switch
@@ -60,6 +70,7 @@ function SettingsPage() {
             aria-label="Dark mode"
           />
         </Row>
+
         <Row label="Language">
           <Select
             defaultValue="en"
@@ -76,6 +87,7 @@ function SettingsPage() {
             </SelectContent>
           </Select>
         </Row>
+
         <Row label="Notifications" hint="Streak reminders and quiz results">
           <Switch
             checked={notifications}
@@ -86,21 +98,47 @@ function SettingsPage() {
             aria-label="Notifications"
           />
         </Row>
-        <Row label="AI model" hint="Choose the reasoning engine">
+
+        <Row label="AI Model Engine" hint="Select ChatGPT or Academic AI">
           <Select
-            defaultValue="pro"
-            onValueChange={(model) => toast.success(`AI Model updated to ${model}`)}
+            value={aiProvider}
+            onValueChange={(model) => {
+              setAiProvider(model);
+              handleSaveAi(openAiKey, model);
+            }}
           >
-            <SelectTrigger className="w-44 border-glass-border bg-glass">
+            <SelectTrigger className="w-48 border-glass-border bg-glass">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="flash">Fast · concise</SelectItem>
-              <SelectItem value="pro">Balanced · default</SelectItem>
-              <SelectItem value="reason">Deep reasoning</SelectItem>
+              <SelectItem value="gpt-4o-mini">ChatGPT · GPT-4o Mini</SelectItem>
+              <SelectItem value="gpt-4o">ChatGPT · GPT-4o (High Intelligence)</SelectItem>
+              <SelectItem value="edge-function">Supabase Edge Function</SelectItem>
+              <SelectItem value="academic-ai">Built-in Academic AI Engine</SelectItem>
             </SelectContent>
           </Select>
         </Row>
+
+        <Row label="OpenAI API Key (ChatGPT)" hint="Stored securely in browser & Supabase User Profile">
+          <div className="flex w-64 items-center gap-2">
+            <Input
+              type="password"
+              placeholder="sk-..."
+              value={openAiKey}
+              onChange={(e) => setOpenAiKey(e.target.value)}
+              className="h-9 border-glass-border bg-glass text-xs"
+            />
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => handleSaveAi(openAiKey, aiProvider)}
+              className="h-9 text-xs"
+            >
+              Save Key
+            </Button>
+          </div>
+        </Row>
+
         <Row label={`Font size · ${fontSize[0]}px`} hint="Applies to answers and notes">
           <div className="w-40">
             <Slider
@@ -115,7 +153,8 @@ function SettingsPage() {
             />
           </div>
         </Row>
-        <Row label="Private mode" hint="Don't store chat history">
+
+        <Row label="Private mode" hint="Don't store chat history in Supabase">
           <Switch
             checked={privacy}
             onCheckedChange={(val) => {
@@ -133,7 +172,7 @@ function SettingsPage() {
           toast.success("Successfully logged out.");
           navigate({ to: "/login" });
         }}
-        className="border-destructive/40 text-destructive hover-lift"
+        className="mt-6 border-destructive/40 text-destructive hover-lift"
       >
         <LogOut className="mr-1 h-4 w-4" /> Log out
       </Button>

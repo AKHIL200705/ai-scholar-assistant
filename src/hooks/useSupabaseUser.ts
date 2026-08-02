@@ -25,13 +25,13 @@ export function useSupabaseUser() {
   });
   const [loading, setLoading] = useState(true);
 
-  const updateUserProfile = (user: any) => {
+  const updateUserProfile = async (user: any) => {
     if (!user) return;
     console.log("Updating User Profile from Supabase Auth User:", user);
     const meta = user.user_metadata || {};
     
     // Read name from all possible Google / OAuth metadata fields
-    const name =
+    let name =
       meta.full_name ||
       meta.name ||
       meta.given_name ||
@@ -39,12 +39,27 @@ export function useSupabaseUser() {
       user.email?.split("@")[0] ||
       "User";
 
-    const email = user.email || meta.email || "";
-    const avatarUrl = meta.avatar_url || meta.picture;
+    let email = user.email || meta.email || "";
+    let avatarUrl = meta.avatar_url || meta.picture;
+    let xp = 0;
 
-    console.log("Extracted Profile Name:", name);
-    console.log("Extracted Profile Email:", email);
-    console.log("Extracted Profile Avatar:", avatarUrl);
+    // Try fetching extra profile columns from public.profiles table if existing
+    try {
+      const { data: dbProfile } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (dbProfile) {
+        if (dbProfile.full_name) name = dbProfile.full_name;
+        if (dbProfile.email) email = dbProfile.email;
+        if (dbProfile.avatar_url) avatarUrl = dbProfile.avatar_url;
+        if (typeof dbProfile.xp === "number") xp = dbProfile.xp;
+      }
+    } catch (e) {
+      // Ignore if table not present
+    }
 
     const initials =
       name
@@ -61,8 +76,10 @@ export function useSupabaseUser() {
       email,
       avatarUrl,
       initials,
+      xp: xp || prev.xp,
     }));
   };
+
 
   useEffect(() => {
     async function loadUser() {

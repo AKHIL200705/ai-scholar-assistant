@@ -20,13 +20,19 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { user } from "@/data/mock";
 import { solveAcademicDoubt } from "@/lib/ai-service";
-import { saveAnswerToSupabase } from "@/lib/supabase-service";
+import {
+  saveAnswerToSupabase,
+  saveChatMessageToSupabase,
+  fetchChatMessagesFromSupabase,
+  createConversationInSupabase,
+  getAiSettings,
+} from "@/lib/supabase-service";
 
 export const Route = createFileRoute("/app/chat")({
   head: () => ({
     meta: [
       { title: "Ask AI — AI Doubt Resolution Assistant" },
-      { name: "description", content: "Chat with your AI academic tutor for step-by-step doubt resolution." },
+      { name: "description", content: "Chat with your AI academic tutor powered by ChatGPT & Supabase." },
     ],
   }),
   component: ChatPage,
@@ -86,10 +92,25 @@ function now() {
 function ChatPage() {
   const navigate = useNavigate();
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [selectedModel, setSelectedModel] = useState("gpt-4o-mini");
   const endRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const { provider } = getAiSettings();
+    setSelectedModel(provider || "gpt-4o-mini");
+
+    async function loadSupabaseHistory() {
+      const stored = await fetchChatMessagesFromSupabase(conversationId || undefined);
+      if (stored && stored.length > 0) {
+        setMessages(stored);
+      }
+    }
+    loadSupabaseHistory();
+  }, [conversationId]);
 
   function toggleVoiceInput() {
     if (recording) {
@@ -110,26 +131,57 @@ function ChatPage() {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, thinking]);
 
+  async function handleNewChat() {
+    const newConv = await createConversationInSupabase("New Academic Thread", "General");
+    setConversationId(newConv.id);
+    setMessages([]);
+    toast.success("Started a new AI conversation session on Supabase!");
+  }
+
   async function send(text: string) {
     const q = text.trim();
     if (!q) return;
-    setMessages((m) => [...m, { id: crypto.randomUUID(), role: "user", text: q, time: now() }]);
+
+    let activeConvId = conversationId;
+    if (!activeConvId) {
+      const newConv = await createConversationInSupabase(q.slice(0, 35) + "...", "General");
+      activeConvId = newConv.id;
+      setConversationId(activeConvId);
+    }
+
+    const userMsg: ChatMessage = { id: crypto.randomUUID(), role: "user", text: q, time: now() };
+    setMessages((m) => [...m, userMsg]);
     setInput("");
     setThinking(true);
 
+    // Save user message to Supabase
+    saveChatMessageToSupabase(activeConvId, "user", q, "General");
+
     try {
-      const res = await solveAcademicDoubt(q);
-      setMessages((m) => [
-        ...m,
-        {
-          id: crypto.randomUUID(),
-          role: "ai",
-          text: res.answer,
-          subject: res.subject,
-          userQuestion: q,
-          time: now(),
-        },
-      ]);
+      const historyContext = messages.map((m) => ({
+        role: m.role === "ai" ? "assistant" : "user",
+        content: m.text,
+      }));
+
+      const res = await solveAcademicDoubt(q, {
+        model: selectedModel,
+        messages: [...historyContext, { role: "user", content: q }],
+        useEdgeFunction: selectedModel === "edge-function",
+      });
+
+      const aiMsg: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: "ai",
+        text: res.answer,
+        subject: res.subject,
+        userQuestion: q,
+        time: now(),
+      };
+
+      setMessages((m) => [...m, aiMsg]);
+      // Save AI message to Supabase
+      saveChatMessageToSupabase(activeConvId, "ai", res.answer, res.subject || "General");
+      toast.success(res.provider ? `Answered using ${res.provider}` : "AI response generated & synced to Supabase!");
     } catch {
       toast.error("Failed to generate AI response. Please try again.");
     } finally {
@@ -142,6 +194,7 @@ function ChatPage() {
     await saveAnswerToSupabase(q, msg.text, msg.subject || "General");
     toast.success("Saved answer to your Supabase revision library!");
   }
+
 
   return (
     <PageShell title="Ask AI" subtitle="Your always-on tutor for every subject.">
